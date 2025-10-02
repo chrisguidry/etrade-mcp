@@ -1,0 +1,83 @@
+[project]
+name = "etrade-mcp"
+version = "0.1.0"
+description = "MCP server for E*TRADE accounts"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=2.11.3",
+    "pydantic>=2.11.5",
+    "requests>=2.32.0",
+    "requests-oauthlib>=2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.7.0",
+    "pytest-env>=1.1.5",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+    "ruff>=0.12.0",
+    "types-requests>=2.32.0",
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=server",
+    "--cov=models",
+    "--cov=repository",
+    "--cov=tests/",
+    "--cov-branch",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-fail-under=100",
+    "--strict-markers",
+    "--strict-config",
+    "-Werror",
+]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["error"]
+env = [
+    "ETRADE_CONSUMER_KEY=test_consumer_key",
+    "ETRADE_CONSUMER_SECRET=test_consumer_secret",
+    "ETRADE_ENVIRONMENT=sandbox",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "pragma: no cover",
+]
+
+[tool.coverage.run]
+omit = ["tests/assertions.py"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["requests_oauthlib", "requests_oauthlib.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade (enforce modern python syntax)
+    "RUF", # ruff-specific rules
+]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"oauth_web_server.py" = ["E501"]  # Allow long lines in HTML templates
