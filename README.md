@@ -23,54 +23,68 @@ uv sync
 
 ### 2. Get E*TRADE API Credentials
 
-Before you can use this MCP server, you need to obtain `consumer_key` and `consumer_secret` from E*TRADE:
+You'll need to obtain API credentials from E*TRADE in two stages: **sandbox keys first** (for testing), then **production keys** (for real account access).
 
-#### Step-by-Step:
+> **Important**: Sandbox and production use completely separate credentials. You cannot "promote" sandbox keys to production - you'll need to obtain production keys through a separate process.
 
-1. **Go to https://developer.etrade.com**
+#### Step 1: Get Sandbox Keys (Required First)
 
-2. **Log in** with your E*TRADE credentials
-   - If you don't have an E*TRADE account, you can still create a developer account for sandbox testing
-   - Production account registration: https://us.etrade.com
+Sandbox keys let you test with simulated data before accessing your real accounts.
 
-3. **Navigate to "My Apps"** (or similar menu option)
+1. **Log into your E*TRADE account** at https://us.etrade.com
+   - Don't have an account? You can create one for free
 
-4. **Click "Create New App"** or "Register Application"
+2. **Visit the Sandbox Key Generator**: https://us.etrade.com/etx/ris/apikey
 
-5. **Fill in the application registration form:**
-   - **Application Name**: `Personal MCP Server` (or any name you prefer)
-   - **Description**: `Personal finance AI assistant integration`
-   - **Callback URL**: `oob` (stands for "out-of-band" - **required** for desktop applications)
+3. **Select an account** to tie your API key to (any account works - the key will work with all your accounts)
 
-6. **Submit the registration**
+4. **Choose "Create Key"** as the Operation Type
 
-7. **Copy your credentials** - you'll receive two sets of keys:
+5. **Click "Get Sandbox Key"**
 
-   **Sandbox Keys** (for testing with simulated data):
-   - Consumer Key (also called API Key)
-   - Consumer Secret (also called Secret Key)
-
-   **Production Keys** (for accessing real account data):
-   - Consumer Key
-   - Consumer Secret
+6. **Copy your credentials** - you'll receive:
+   - **Consumer Key** (also called API Key)
+   - **Consumer Secret** (also called Secret Key)
 
    **⚠️ IMPORTANT**: Treat these like passwords - never commit them to version control
 
-8. **Start with sandbox for testing:**
-   - You can use sandbox without a real E*TRADE brokerage account
-   - Provides simulated data for development and testing
-   - No risk to real money or accounts
+7. **Test with sandbox first** to make sure everything works before using real data
 
-9. **Switch to production when ready:**
-   - Requires an active E*TRADE brokerage account
-   - Provides access to your real account data
-   - This server is read-only, so it's safe to use with production credentials
+#### Step 2: Get Production Keys (After Testing with Sandbox)
+
+Once you've tested with sandbox and are ready for real account access:
+
+1. **Navigate to the E*TRADE Developer Portal**: https://developer.etrade.com/getting-started
+
+2. **Scroll to the bottom** of the Getting Started page to find:
+   - "Here are some things you need to gain and maintain API access"
+
+3. **Complete the API User Intent Survey**:
+   - Click the "API USER INTENT SURVEY" link (or visit https://us.etrade.com/etx/ris/apisurvey/#/questionnaire)
+   - Must be logged into your E*TRADE account
+   - Explain your intended use (personal portfolio monitoring)
+
+4. **Sign the API Developer Agreement**:
+   - Click the "API AGREEMENT" link (or visit https://us.etrade.com/etx/ris/apisurvey/#/agreement)
+   - Review and accept the agreement terms
+   - This is an online form - no need to download or email anything
+
+5. **Production keys provided immediately** after completing both forms
+   - You'll receive a new **Consumer Key** and **Consumer Secret**
+   - These are completely different from your sandbox credentials
+
+**Requirements**:
+- Active E*TRADE brokerage or bank account
+- Completed User Intent Survey
+- Signed API Developer Agreement
+
+**Note**: This MCP server is read-only, so it's safe to use with production credentials.
 
 ### 3. Set Environment Variables
 
-Using the credentials from step 2, set these environment variables:
+Using the credentials from Step 2, configure your environment variables.
 
-**For sandbox testing** (recommended to start):
+**For sandbox testing** (start here):
 ```bash
 export ETRADE_CONSUMER_KEY="your_sandbox_consumer_key_here"
 export ETRADE_CONSUMER_SECRET="your_sandbox_consumer_secret_here"
@@ -83,6 +97,8 @@ export ETRADE_CONSUMER_KEY="your_production_consumer_key_here"
 export ETRADE_CONSUMER_SECRET="your_production_consumer_secret_here"
 export ETRADE_ENVIRONMENT="production"
 ```
+
+> **Critical**: The `ETRADE_ENVIRONMENT` must match the credentials you're using. Sandbox keys only work with `ETRADE_ENVIRONMENT="sandbox"` and production keys only work with `ETRADE_ENVIRONMENT="production"`. Mismatched environment/credentials will result in authentication errors.
 
 **💡 Tip**: Create a `.env` file or add these to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.)
 
@@ -119,23 +135,26 @@ uv run python server.py
 
 ### 5. Complete OAuth Authorization
 
-When you start the server for the first time, you'll need to authorize access:
+When you start the server for the first time (or when tokens expire), you'll need to authorize access.
 
-1. The server will automatically open a browser window with an authorization page
-2. Click the link to authorize with E*TRADE
-3. Log into E*TRADE on the authorization page
-4. Review and accept the permissions (read-only access)
-5. E*TRADE will display a **verification code**
-6. Copy the verification code and paste it into the form on the authorization page
-7. Click "Submit Code"
-8. The server will complete authorization and start running
+The MCP server will automatically open a browser window with a local authorization page.
+
+**Authorization Steps**:
+
+1. **Click "Open E*TRADE Authorization Page"** - this takes you to E*TRADE's website
+2. **Log into E*TRADE** and review the permissions (read-only access)
+3. **E*TRADE displays a verification code** - copy it
+4. **Paste the code** into the form on the authorization page
+5. **Click "Submit Code"** - the server completes authorization automatically
 
 **Token Persistence**: After initial authorization, the server saves your access tokens securely in `~/.config/etrade-mcp/`. Tokens are automatically renewed when they expire, so you typically won't need to re-authorize unless:
 - Tokens are manually deleted
-- You're switching between sandbox and production
+- You're switching between sandbox and production environments
 - E*TRADE invalidates the tokens (rare)
 
 **Multi-Profile**: Each profile maintains its own tokens and authorization state independently.
+
+> **Note**: The authorization page is served by your local MCP server (not E*TRADE). This web-based flow is designed to work seamlessly with MCP clients like Claude Desktop.
 
 ## Available Tools
 
