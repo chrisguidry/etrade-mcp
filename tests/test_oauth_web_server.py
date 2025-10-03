@@ -21,31 +21,32 @@ def test_oauth_handler_serves_authorization_page(unused_tcp_port: int) -> None:
     OAuthWebHandler.authorization_url = test_auth_url
     OAuthWebHandler.verification_code = None
 
-    server = HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.start()
+    with HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler) as server:
+        server_thread = Thread(target=server.serve_forever)
+        server_thread.start()
 
-    try:
-        # Give server time to start
-        time.sleep(0.2)
+        try:
+            # Give server time to start
+            time.sleep(0.2)
 
-        # Make GET request
-        with urllib.request.urlopen(f"http://localhost:{unused_tcp_port}/") as response:
-            html = response.read().decode()
-            # Verify the HTML contains expected elements
-            assert response.status == 200
-        assert "E*TRADE Authorization" in html
-        assert test_auth_url in html
-        assert "Step 1" in html
-        assert "Step 2" in html
-        assert "Step 3" in html
-        assert 'name="code"' in html
-        assert 'charset="UTF-8"' in html
+            # Make GET request
+            with urllib.request.urlopen(
+                f"http://localhost:{unused_tcp_port}/"
+            ) as response:
+                html = response.read().decode()
+                # Verify the HTML contains expected elements
+                assert response.status == 200
+            assert "E*TRADE Authorization" in html
+            assert test_auth_url in html
+            assert "Step 1" in html
+            assert "Step 2" in html
+            assert "Step 3" in html
+            assert 'name="code"' in html
+            assert 'charset="UTF-8"' in html
 
-    finally:
-        server.shutdown()
-        server.server_close()
-        server_thread.join(timeout=1)
+        finally:
+            server.shutdown()
+            server_thread.join(timeout=1)
 
 
 def test_oauth_handler_accepts_verification_code(unused_tcp_port: int) -> None:
@@ -53,34 +54,33 @@ def test_oauth_handler_accepts_verification_code(unused_tcp_port: int) -> None:
     OAuthWebHandler.authorization_url = "https://example.com/auth"
     OAuthWebHandler.verification_code = None
 
-    server = HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.start()
+    with HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler) as server:
+        server_thread = Thread(target=server.serve_forever)
+        server_thread.start()
 
-    try:
-        time.sleep(0.2)
+        try:
+            time.sleep(0.2)
 
-        # Submit verification code
-        test_code = "ABC123XYZ"
-        post_data = urlencode({"code": test_code}).encode()
+            # Submit verification code
+            test_code = "ABC123XYZ"
+            post_data = urlencode({"code": test_code}).encode()
 
-        request = urllib.request.Request(
-            f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
-        )
-        with urllib.request.urlopen(request) as response:
-            html = response.read().decode()
-            # Verify response
-            assert response.status == 200
-        assert "Authorization Complete" in html
-        assert "✓" in html
+            request = urllib.request.Request(
+                f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
+            )
+            with urllib.request.urlopen(request) as response:
+                html = response.read().decode()
+                # Verify response
+                assert response.status == 200
+            assert "Authorization Complete" in html
+            assert "✓" in html
 
-        # Verify code was stored
-        assert OAuthWebHandler.verification_code == test_code
+            # Verify code was stored
+            assert OAuthWebHandler.verification_code == test_code
 
-    finally:
-        server.shutdown()
-        server.server_close()
-        server_thread.join(timeout=1)
+        finally:
+            server.shutdown()
+            server_thread.join(timeout=1)
 
 
 def test_oauth_handler_rejects_empty_code(unused_tcp_port: int) -> None:
@@ -88,65 +88,66 @@ def test_oauth_handler_rejects_empty_code(unused_tcp_port: int) -> None:
     OAuthWebHandler.authorization_url = "https://example.com/auth"
     OAuthWebHandler.verification_code = None
 
-    server = HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.start()
+    with HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler) as server:
+        server_thread = Thread(target=server.serve_forever)
+        server_thread.start()
 
-    try:
-        time.sleep(0.2)
+        try:
+            time.sleep(0.2)
 
-        # Submit empty code
-        post_data = urlencode({"code": ""}).encode()
+            # Submit empty code
+            post_data = urlencode({"code": ""}).encode()
 
-        request = urllib.request.Request(
-            f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
-        )
+            request = urllib.request.Request(
+                f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
+            )
 
-        # Should get 400 Bad Request
-        with pytest.raises(HTTPError) as exc_info:
-            urllib.request.urlopen(request)
+            # Should get 400 Bad Request
+            with pytest.raises(HTTPError) as exc_info:
+                with urllib.request.urlopen(request) as response:  # pragma: no cover
+                    response.read()  # pragma: no cover
 
-        assert exc_info.value.code == 400
+            assert exc_info.value.code == 400
+            exc_info.value.close()  # Explicitly close the HTTPError response
 
-        # Verify code was NOT stored
-        assert OAuthWebHandler.verification_code is None
+            # Verify code was NOT stored
+            assert OAuthWebHandler.verification_code is None
 
-    finally:
-        server.shutdown()
-        server.server_close()
-        server_thread.join(timeout=1)
+        finally:
+            server.shutdown()
+            server_thread.join(timeout=1)
 
 
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_oauth_handler_rejects_whitespace_only_code(unused_tcp_port: int) -> None:
     """Test that the handler rejects whitespace-only verification code."""
     OAuthWebHandler.authorization_url = "https://example.com/auth"
     OAuthWebHandler.verification_code = None
 
-    server = HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.start()
+    with HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler) as server:
+        server_thread = Thread(target=server.serve_forever)
+        server_thread.start()
 
-    try:
-        time.sleep(0.2)
+        try:
+            time.sleep(0.2)
 
-        # Submit whitespace-only code
-        post_data = urlencode({"code": "   "}).encode()
+            # Submit whitespace-only code
+            post_data = urlencode({"code": "   "}).encode()
 
-        request = urllib.request.Request(
-            f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
-        )
+            request = urllib.request.Request(
+                f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
+            )
 
-        with pytest.raises(HTTPError) as exc_info:
-            urllib.request.urlopen(request)
+            with pytest.raises(HTTPError) as exc_info:
+                with urllib.request.urlopen(request) as response:  # pragma: no cover
+                    response.read()  # pragma: no cover
 
-        assert exc_info.value.code == 400
-        assert OAuthWebHandler.verification_code is None
+            assert exc_info.value.code == 400
+            exc_info.value.close()  # Explicitly close the HTTPError response
+            assert OAuthWebHandler.verification_code is None
 
-    finally:
-        server.shutdown()
-        server.server_close()
-        server_thread.join(timeout=1)
+        finally:
+            server.shutdown()
+            server_thread.join(timeout=1)
 
 
 def test_oauth_handler_trims_whitespace_from_code(unused_tcp_port: int) -> None:
@@ -154,30 +155,29 @@ def test_oauth_handler_trims_whitespace_from_code(unused_tcp_port: int) -> None:
     OAuthWebHandler.authorization_url = "https://example.com/auth"
     OAuthWebHandler.verification_code = None
 
-    server = HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.start()
+    with HTTPServer(("localhost", unused_tcp_port), OAuthWebHandler) as server:
+        server_thread = Thread(target=server.serve_forever)
+        server_thread.start()
 
-    try:
-        time.sleep(0.2)
+        try:
+            time.sleep(0.2)
 
-        # Submit code with whitespace
-        post_data = urlencode({"code": "  CODE123  "}).encode()
+            # Submit code with whitespace
+            post_data = urlencode({"code": "  CODE123  "}).encode()
 
-        request = urllib.request.Request(
-            f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
-        )
-        with urllib.request.urlopen(request) as response:
-            html = response.read().decode()
-            assert response.status == 200
-            assert "Authorization Complete" in html
-        # Verify whitespace was trimmed
-        assert OAuthWebHandler.verification_code == "CODE123"
+            request = urllib.request.Request(
+                f"http://localhost:{unused_tcp_port}/", data=post_data, method="POST"
+            )
+            with urllib.request.urlopen(request) as response:
+                html = response.read().decode()
+                assert response.status == 200
+                assert "Authorization Complete" in html
+                # Verify whitespace was trimmed
+                assert OAuthWebHandler.verification_code == "CODE123"
 
-    finally:
-        server.shutdown()
-        server.server_close()
-        server_thread.join(timeout=1)
+        finally:
+            server.shutdown()
+            server_thread.join(timeout=1)
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
@@ -204,8 +204,8 @@ def test_run_web_oauth_flow_integration() -> None:
                 request = urllib.request.Request(
                     f"http://localhost:{port}/", data=post_data, method="POST"
                 )
-                with urllib.request.urlopen(request):
-                    pass
+                with urllib.request.urlopen(request) as response:
+                    response.read()  # Ensure response is fully read
 
         Thread(target=submit_code).start()
         return True
@@ -276,8 +276,8 @@ def test_run_web_oauth_flow_finds_random_port() -> None:
                 request = urllib.request.Request(
                     f"http://localhost:{port}/", data=post_data, method="POST"
                 )
-                with urllib.request.urlopen(request):
-                    pass
+                with urllib.request.urlopen(request) as response:
+                    response.read()  # Ensure response is fully read
 
             Thread(target=submit).start()
         return True

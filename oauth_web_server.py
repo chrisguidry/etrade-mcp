@@ -144,34 +144,32 @@ def run_web_oauth_flow(authorization_url: str, timeout: int = 300) -> str:
     OAuthWebHandler.verification_code = None
 
     # Start server in background thread
-    server = HTTPServer(("localhost", port), OAuthWebHandler)
-    server_thread = Thread(target=server.serve_forever, daemon=True)
-    server_thread.start()
+    with HTTPServer(("localhost", port), OAuthWebHandler) as server:
+        server_thread = Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
 
-    # Open browser to local authorization page
-    local_url = f"http://localhost:{port}"
-    logger.info(f"Opening browser to {local_url} for OAuth flow")
-    webbrowser.open(local_url)
+        # Open browser to local authorization page
+        local_url = f"http://localhost:{port}"
+        logger.info(f"Opening browser to {local_url} for OAuth flow")
+        webbrowser.open(local_url)
 
-    # Wait for verification code with timeout
-    start_time = time.time()
+        # Wait for verification code with timeout
+        start_time = time.time()
 
-    while OAuthWebHandler.verification_code is None:
-        if time.time() - start_time > timeout:
-            server.shutdown()
-            server.server_close()
-            server_thread.join(timeout=1)
-            raise TimeoutError(
-                f"OAuth authorization timed out after {timeout} seconds. "
-                "Please try again."
-            )
-        time.sleep(0.5)
+        while OAuthWebHandler.verification_code is None:
+            if time.time() - start_time > timeout:
+                server.shutdown()
+                server_thread.join(timeout=1)
+                raise TimeoutError(
+                    f"OAuth authorization timed out after {timeout} seconds. "
+                    "Please try again."
+                )
+            time.sleep(0.5)
 
-    # Got the code, shut down server
-    verification_code = OAuthWebHandler.verification_code
-    server.shutdown()
-    server.server_close()
-    server_thread.join(timeout=1)
-    logger.info("Received verification code via web flow")
+        # Got the code, shut down server
+        verification_code = OAuthWebHandler.verification_code
+        server.shutdown()
+        server_thread.join(timeout=1)
+        logger.info("Received verification code via web flow")
 
     return verification_code
