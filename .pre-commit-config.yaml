@@ -27,4 +27,4 @@ repos:
           - pydantic
           - requests-oauthlib
         args: [--strict, --show-error-codes]
-        files: ^(server\.py|models\.py|repository\.py|tests/.+\.py)$
+        files: \.py$

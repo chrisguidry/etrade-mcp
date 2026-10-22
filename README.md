@@ -11,6 +11,16 @@ Ask your AI assistant questions like:
 - "Do my E\*TRADE balances match what's in [YNAB](https://github.com/chrisguidry/you-need-an-mcp)?"
 - "What's the current price of Apple stock?"
 
+The server has five tools, and every one of them only reads:
+
+- `list_profiles`: the E\*TRADE logins the server is configured for
+- `list_accounts`: the open accounts for one profile
+- `get_account_balance`: one account's cash, buying power, and total value
+- `get_account_portfolio`: the positions in one account, with their value and gains
+- `get_quotes`: quotes for up to 25 symbols
+
+None of them places, changes, or cancels an order, or moves money.
+
 ## Setup
 
 ### 1. Install
@@ -77,7 +87,7 @@ export ETRADE_2_ENVIRONMENT="sandbox"
 export ETRADE_2_LABEL="Testing"
 ```
 
-**⚠️ Important**: Never commit credentials to version control. The `ETRADE_N_ENVIRONMENT` must match your credentials—sandbox keys only work with `sandbox`, production keys only work with `production`.
+**Important**: Never commit credentials to version control. The `ETRADE_N_ENVIRONMENT` must match your credentials: sandbox keys only work with `sandbox`, production keys only work with `production`.
 
 ### 4. Run and Authorize
 
@@ -93,6 +103,8 @@ On first run (or when tokens expire), the server opens a browser to authorize ac
 
 Tokens are saved in `~/.config/etrade-mcp/` and automatically renewed. Each profile maintains separate tokens.
 
+E\*TRADE expires every token at midnight US Eastern time. After that, or when E\*TRADE stops accepting a profile's token, the next tool call for that profile opens the authorization page in a browser again. When an MCP client starts the server with `fastmcp run server.py:mcp` and no token is saved, the first tool call opens the same page.
+
 ## Development
 
 ```bash
@@ -102,9 +114,15 @@ uv run pytest
 # Type checking
 uv run mypy .
 
-# Linting
+# Linting and formatting
 uv run ruff check .
+uv run ruff format --check .
+
+# Every pre-commit hook
+uv run pre-commit run --all-files
 ```
+
+The repository has no CI, so run these before you push.
 
 ## Resources
 

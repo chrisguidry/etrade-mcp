@@ -1,168 +1,83 @@
-"""Tests for MCP server tools."""
+"""
+Test the server's tool set and how it starts.
+"""
 
-import json
-import sys
-from decimal import Decimal
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+import runpy
+from unittest.mock import patch
 
+import fastmcp
+import mcp.types as mt
 import pytest
-from fastmcp.client import Client, FastMCPTransport
+from conftest import FakeETrade
 
-# Add parent directory to path to import modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import server
-from models import Quote
+from effects import READ, WRITE
 from repository import ETradeRepository
 
 
-async def test_list_accounts(
-    mock_repository_context: MagicMock,
-    mcp_client: Client[FastMCPTransport],
+async def served_tools() -> list[mt.Tool]:
+    module = runpy.run_module("server")
+    async with fastmcp.Client(module["mcp"]) as client:
+        tools: list[mt.Tool] = await client.list_tools()
+    return tools
+
+
+async def test_every_tool_is_tagged_read_or_write() -> None:
+    tools = await served_tools()
+
+    tags = [set(tool.meta["fastmcp"]["tags"]) for tool in tools if tool.meta]
+    assert len(tags) == len(tools)
+    assert all(len(tool_tags & {READ, WRITE}) == 1 for tool_tags in tags)
+
+
+async def test_every_tool_only_reads() -> None:
+    tools = await served_tools()
+
+    assert all(tool.annotations for tool in tools)
+    assert all(tool.annotations.read_only_hint for tool in tools if tool.annotations)
+
+
+async def test_every_tool_has_a_title() -> None:
+    tools = await served_tools()
+
+    assert all(tool.title for tool in tools)
+
+
+async def test_parameter_descriptions_carry_no_docstring_indentation() -> None:
+    """A wrapped Args line needs a 4-space hanging indent.  Aligned
+    indentation survives FastMCP's docstring parsing and reaches the model."""
+    tools = await served_tools()
+
+    descriptions = [
+        f"{tool.name}.{name}: {schema['description']!r}"
+        for tool in tools
+        for name, schema in tool.input_schema["properties"].items()
+        if "\n " in schema.get("description", "")
+    ]
+    assert descriptions == []
+
+
+def test_running_the_module_authorizes_every_profile_then_serves(
+    etrade: FakeETrade, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test list_accounts tool."""
-    result = await mcp_client.call_tool("list_accounts", arguments={})
-    response_data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+    monkeypatch.setenv("ETRADE_1_CONSUMER_KEY", "key1")
+    monkeypatch.setenv("ETRADE_1_CONSUMER_SECRET", "secret1")
+    authorized: list[str] = []
 
-    assert len(response_data["accounts"]) == 1
-    assert response_data["accounts"][0]["account_id"] == "12345678"
-    assert response_data["accounts"][0]["account_id_key"] == "abc123xyz"
-    mock_repository_context.get_accounts.assert_called_once()
+    def authorize(repository: ETradeRepository) -> None:
+        authorized.append(repository.profile_id)
 
+    with (
+        patch("repository.ETradeRepository.authorize", authorize),
+        patch("fastmcp.FastMCP.run") as run,
+    ):
+        runpy.run_module("server", run_name="__main__")
 
-async def test_get_account_balance(
-    mock_repository_context: MagicMock,
-    mcp_client: Client[FastMCPTransport],
-) -> None:
-    """Test get_account_balance tool."""
-    result = await mcp_client.call_tool(
-        "get_account_balance", arguments={"account_id_key": "abc123xyz"}
-    )
-    response_data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-    assert response_data["account_id"] == "12345678"
-    assert response_data["cash_balance"] == "5000.00"
-    assert response_data["total_account_value"] == "25000.00"
-    mock_repository_context.get_account_balance.assert_called_once_with("abc123xyz")
+    assert authorized == ["0", "1"]
+    run.assert_called_once_with()
 
 
-async def test_get_account_portfolio(
-    mock_repository_context: MagicMock,
-    mcp_client: Client[FastMCPTransport],
-) -> None:
-    """Test get_account_portfolio tool."""
-    result = await mcp_client.call_tool(
-        "get_account_portfolio", arguments={"account_id_key": "abc123xyz"}
-    )
-    response_data = json.loads(result.content[0].text)  # type: ignore[union-attr]
+def test_importing_the_server_does_not_start_it() -> None:
+    with patch("fastmcp.FastMCP.run") as run:
+        runpy.run_module("server")
 
-    assert response_data["account_id"] == "abc123xyz"
-    assert len(response_data["positions"]) == 1
-    assert response_data["positions"][0]["symbol"] == "AAPL"
-    assert response_data["total_market_value"] == "1750.00"
-    mock_repository_context.get_account_portfolio.assert_called_once_with("abc123xyz")
-
-
-async def test_get_quotes(
-    mock_repository_context: MagicMock,
-    mcp_client: Client[FastMCPTransport],
-) -> None:
-    """Test get_quotes tool with single symbol."""
-    result = await mcp_client.call_tool("get_quotes", arguments={"symbols": ["AAPL"]})
-    response_data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-    assert len(response_data["quotes"]) == 1
-    assert response_data["quotes"][0]["symbol"] == "AAPL"
-    assert response_data["quotes"][0]["last_trade"] == "175.00"
-    mock_repository_context.get_quotes.assert_called_once_with(["AAPL"])
-
-
-async def test_get_quotes_multiple_symbols(
-    mock_repository_context: MagicMock,
-    mcp_client: Client[FastMCPTransport],
-) -> None:
-    """Test get_quotes tool with multiple symbols."""
-    quote1 = Quote(symbol="AAPL", last_trade=Decimal("175.00"))
-    quote2 = Quote(symbol="MSFT", last_trade=Decimal("380.00"))
-    mock_repository_context.get_quotes.return_value = [quote1, quote2]
-
-    result = await mcp_client.call_tool(
-        "get_quotes", arguments={"symbols": ["AAPL", "MSFT"]}
-    )
-    response_data = json.loads(result.content[0].text)  # type: ignore[union-attr]
-
-    assert len(response_data["quotes"]) == 2
-    assert response_data["quotes"][0]["symbol"] == "AAPL"
-    assert response_data["quotes"][1]["symbol"] == "MSFT"
-
-
-async def test_get_quotes_too_many_symbols(
-    mock_repository_context: MagicMock,
-    mcp_client: Client[FastMCPTransport],
-) -> None:
-    """Test get_quotes tool rejects > 25 symbols."""
-    symbols = [f"SYM{i}" for i in range(26)]
-
-    with pytest.raises(Exception, match="Maximum 25 symbols"):
-        await mcp_client.call_tool("get_quotes", arguments={"symbols": symbols})
-
-
-@patch("server._repositories", {})
-@patch("server.create_repositories_from_env")
-def test_get_repository_already_authorized(
-    mock_create: MagicMock, temp_config_home: Path
-) -> None:
-    """Test get_repository doesn't re-authorize if already authorized."""
-    mock_repo = MagicMock(spec=ETradeRepository)
-    # Set _is_authorized as a direct attribute (not a MagicMock)
-    type(mock_repo)._is_authorized = True
-    mock_create.return_value = {"0": mock_repo}
-
-    repo = server.get_repository()
-
-    assert repo._is_authorized
-    mock_repo.authorize.assert_not_called()
-    # Reset module state for other tests
-    server._repositories = {}
-    # Clean up the class attribute
-    del type(mock_repo)._is_authorized
-
-
-@patch("server._repositories", {})
-@patch("server.create_repositories_from_env")
-def test_get_repository_needs_authorization(
-    mock_create: MagicMock, temp_config_home: Path
-) -> None:
-    """Test get_repository calls authorize if not authorized."""
-    mock_repo = MagicMock(spec=ETradeRepository)
-    # Set _is_authorized as a direct attribute (not a MagicMock)
-    type(mock_repo)._is_authorized = False
-    mock_create.return_value = {"0": mock_repo}
-
-    server.get_repository()
-
-    mock_repo.authorize.assert_called_once()
-    # Reset module state for other tests
-    server._repositories = {}
-    # Clean up the class attribute
-    del type(mock_repo)._is_authorized
-
-
-@patch("server._repositories", {})
-@patch("server.create_repositories_from_env")
-def test_get_repository_invalid_profile(
-    mock_create: MagicMock, temp_config_home: Path
-) -> None:
-    """Test get_repository raises error for invalid profile_id."""
-    mock_repo = MagicMock(spec=ETradeRepository)
-    type(mock_repo)._is_authorized = True
-    mock_create.return_value = {"0": mock_repo}
-
-    with pytest.raises(ValueError, match="Profile 999 not found"):
-        server.get_repository(profile_id="999")
-
-    # Reset module state for other tests
-    server._repositories = {}
-    # Clean up the class attribute
-    del type(mock_repo)._is_authorized
+    run.assert_not_called()

@@ -236,23 +236,26 @@ Each use case follows this structure:
 
 ## Tool Implementation Status
 
-### Currently Implemented (4 tools)
-- ✅ `list_accounts()` - Get all active accounts
-- ✅ `get_account_balance(account_id_key)` - Detailed balance for one account
-- ✅ `get_account_portfolio(account_id_key)` - Holdings for one account
-- ✅ `get_quotes(symbols)` - Quotes for up to 25 securities
+### Currently Implemented (5 tools)
+- `list_profiles()` - The configured E*TRADE logins
+- `list_accounts(profile)` - Open accounts for one profile, a page at a time
+- `get_account_balance(account_id_key)` - Detailed balance for one account
+- `get_account_portfolio(account_id_key)` - Holdings for one account, a page at a time, with the total value of all of them
+- `get_quotes(symbols)` - Quotes for up to 25 securities
+
+Every tool is tagged `read` and annotated read-only.  A tool that places, changes, or cancels an order, or moves money, would be tagged `write` and annotated destructive, and the server would need an environment variable that hides its write tools.
 
 ### Potential Future Tools
-- 🔄 `get_transactions(account_id_key)` - Recent transactions for reconciliation
-- 🔄 `get_option_chains(symbol)` - Option chain data for options analysis
-- 🔄 `get_market_hours()` - Market open/close status
+- `get_transactions(account_id_key)` - Recent transactions for reconciliation
+- `get_option_chains(symbol)` - Option chain data for options analysis
+- `get_market_hours()` - Market open/close status
 
 ### Won't Implement (Out of Scope)
-- ❌ Order placement or trading operations
-- ❌ Complex options analytics (Greeks, probability analysis)
-- ❌ Technical analysis indicators
-- ❌ Real-time streaming quotes
-- ❌ Historical charts or time-series data (except what's in quotes)
+- Order placement or trading operations
+- Complex options analytics (Greeks, probability analysis)
+- Technical analysis indicators
+- Real-time streaming quotes
+- Historical charts or time-series data (except what's in quotes)
 
 ## Authentication Model
 
@@ -263,18 +266,24 @@ E*TRADE uses OAuth 1.0 with a manual authorization step:
    - Receives Consumer Key and Consumer Secret
    - Sets callback to "oob" (out-of-band)
 
-2. **Per-session authorization**:
-   - Server starts and prompts for OAuth authorization
-   - Opens browser for user to log into E*TRADE
+2. **Authorization**:
+   - `python server.py` authorizes every profile before it serves; under an MCP client, each profile authorizes on its first tool call
+   - The server opens the browser for the user to log into E*TRADE
    - User authorizes and receives verification code
-   - User enters code in terminal
-   - Session established for duration of server run
+   - User enters the code in the terminal, or, without a terminal, on a local web page the server opens
+   - Only one authorization runs at a time, even when tool calls arrive together
 
-3. **Security considerations**:
+3. **Token lifetime**:
+   - E*TRADE deactivates a token after two hours without requests, and the server renews it before then
+   - E*TRADE expires every token at midnight US Eastern time; the next call after that authorizes the profile again
+   - When E*TRADE rejects a token, the server forgets it, and the next call authorizes again
+
+4. **Security considerations**:
    - Consumer credentials stored in environment variables
-   - Access tokens are session-only (not persisted)
+   - Access tokens stored per profile in `~/.config/etrade-mcp/tokens.json`, readable only by the user
    - Single-user model (no multi-tenant concerns)
    - Works with both sandbox (testing) and production
+   - Every request to E*TRADE has a 30-second timeout
 
 ## Success Metrics
 

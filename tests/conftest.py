@@ -1,159 +1,180 @@
 """
-Pytest configuration and shared fixtures for E*TRADE MCP tests.
+Test fixtures for the E*TRADE MCP server.
+
+Tests run the real server, repositories, and token storage against FakeETrade,
+which answers requests the way E*TRADE's API does, from JSON each test gives it.
 """
 
+from __future__ import annotations
+
+import json
 import sys
-from collections.abc import AsyncGenerator, Generator
-from decimal import Decimal
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from typing import Any
+from urllib.parse import urlsplit
 
 import fastmcp
 import pytest
+import requests
 from fastmcp.client import Client, FastMCPTransport
 
-# Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import server
-from models import Account, Balance, Portfolio, Position, Quote
+import tokens
 from repository import ETradeRepository
+from tokens import AccessToken
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def temp_config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Set XDG_CONFIG_HOME to a temporary directory for testing."""
+    """Keep every test's token file out of the user's real config directory."""
     config_home = tmp_path / "config"
     config_home.mkdir()
     monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
     return config_home
 
 
+def etrade_response(body: Any, status: int = 200) -> requests.Response:
+    """A real requests Response with a JSON body, as E*TRADE sends it."""
+    response = requests.Response()
+    response.status_code = status
+    response.reason = HTTPStatus(status).phrase
+    response._content = json.dumps(body).encode()
+    return response
+
+
+type Answer = requests.Response | requests.RequestException
+
+
+class FakeETrade:
+    """E*TRADE's API, in place of the OAuth1Session the repository signs with.
+
+    It answers a GET for an endpoint path with the response a test gave it, and
+    with a 404 for any other path.  An answer given with params applies only to
+    a request with those params.
+    """
+
+    def __init__(self) -> None:
+        self.answers: dict[tuple[str, frozenset[tuple[str, str]]], Answer] = {}
+        self.requests: list[tuple[str, dict[str, str]]] = []
+        self.timeouts: list[float | None] = []
+        self.sessions: list[dict[str, Any]] = []
+
+    def answer(
+        self,
+        endpoint: str,
+        body: Any = None,
+        status: int = 200,
+        params: dict[str, str] | None = None,
+        error: requests.RequestException | None = None,
+    ) -> None:
+        answer = error or etrade_response(body if body is not None else {}, status)
+        self.answers[(endpoint, frozenset((params or {}).items()))] = answer
+
+    def __call__(self, consumer_key: str, **kwargs: Any) -> FakeETrade:
+        """Open a session, as OAuth1Session(...) does."""
+        self.sessions.append(kwargs)
+        return self
+
+    def get(
+        self,
+        url: str,
+        params: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> requests.Response:
+        path = urlsplit(url).path
+        params = params or {}
+        self.requests.append((path, params))
+        self.timeouts.append(timeout)
+        not_found = etrade_response(
+            {"Error": {"code": 0, "message": f"FakeETrade has no {path}"}}, 404
+        )
+        answer = self.answers.get(
+            (path, frozenset(params.items())),
+            self.answers.get((path, frozenset()), not_found),
+        )
+        if isinstance(answer, requests.RequestException):
+            raise answer
+        return answer
+
+    def fetch_request_token(
+        self, url: str, timeout: float | None = None
+    ) -> dict[str, str]:
+        self.timeouts.append(timeout)
+        return {"oauth_token": "request-token", "oauth_token_secret": "request-secret"}
+
+    def fetch_access_token(
+        self, url: str, timeout: float | None = None
+    ) -> dict[str, str]:
+        self.timeouts.append(timeout)
+        return {"oauth_token": "access-token", "oauth_token_secret": "access-secret"}
+
+
+def store_token(
+    profile_id: str = "0",
+    environment: str = "sandbox",
+    expires_in: timedelta = timedelta(hours=2),
+) -> AccessToken:
+    """Store an access token for a profile, as a past authorization would."""
+    access_token = AccessToken(
+        "stored-token", "stored-secret", datetime.now(UTC) + expires_in
+    )
+    tokens.save_token(profile_id, environment, access_token)
+    return access_token
+
+
 @pytest.fixture
-def sample_account() -> Account:
-    """Sample account for testing."""
-    return Account(
-        account_id="12345678",
-        account_id_key="abc123xyz",
-        account_mode="MARGIN",
-        account_desc="Individual Brokerage",
-        account_name="My Trading Account",
-        account_type="INDIVIDUAL",
-        institution_type="BROKERAGE",
-        account_status="ACTIVE",
-        closed_date=None,
+def etrade(monkeypatch: pytest.MonkeyPatch) -> FakeETrade:
+    """E*TRADE, with profile 0 already authorized in the sandbox."""
+    fake = FakeETrade()
+    monkeypatch.setattr("repository.OAuth1Session", fake)
+    store_token()
+    return fake
+
+
+@pytest.fixture
+def repository(etrade: FakeETrade) -> ETradeRepository:
+    """Profile 0's repository, talking to FakeETrade."""
+    return ETradeRepository(
+        consumer_key="test_consumer_key",
+        consumer_secret="test_consumer_secret",
+        environment="sandbox",
         profile_id="0",
-        profile_label="Test Profile",
     )
 
 
 @pytest.fixture
-def sample_balance() -> Balance:
-    """Sample balance for testing."""
-    return Balance(
-        account_id="12345678",
-        account_type="INDIVIDUAL",
-        account_description="Individual Brokerage",
-        account_mode="MARGIN",
-        cash_balance=Decimal("5000.00"),
-        cash_buying_power=Decimal("5000.00"),
-        margin_buying_power=Decimal("10000.00"),
-        total_account_value=Decimal("25000.00"),
-        net_account_value=Decimal("25000.00"),
-        uncleared_deposits=Decimal("0"),
-        funds_withheld_from_purchase_power=Decimal("0"),
-        funds_withheld_from_withdrawal=Decimal("0"),
-        profile_id="0",
-        profile_label="Test Profile",
-    )
-
-
-@pytest.fixture
-def sample_position() -> Position:
-    """Sample position for testing."""
-    return Position(
-        symbol="AAPL",
-        symbol_description="APPLE INC COM",
-        type_code="EQ",
-        quantity=Decimal("10"),
-        price_paid=Decimal("150.00"),
-        total_cost=Decimal("1500.00"),
-        cost_per_share=Decimal("150.00"),
-        last_trade=Decimal("175.00"),
-        market_value=Decimal("1750.00"),
-        total_gain=Decimal("250.00"),
-        total_gain_pct=Decimal("16.67"),
-        days_gain=Decimal("10.00"),
-        days_gain_pct=Decimal("0.57"),
-        position_type="LONG",
-        quote_detail="ALL",
-    )
-
-
-@pytest.fixture
-def sample_portfolio(sample_position: Position) -> Portfolio:
-    """Sample portfolio for testing."""
-    return Portfolio(
-        account_id="abc123xyz",
-        positions=[sample_position],
-        total_market_value=Decimal("1750.00"),
-        profile_id="0",
-        profile_label="Test Profile",
-    )
-
-
-@pytest.fixture
-def sample_quote() -> Quote:
-    """Sample quote for testing."""
-    return Quote(
-        symbol="AAPL",
-        company_name="Apple Inc.",
-        security_type="EQ",
-        last_trade=Decimal("175.00"),
-        bid=Decimal("174.95"),
-        ask=Decimal("175.05"),
-        change=Decimal("1.50"),
-        change_pct=Decimal("0.86"),
-        volume=50_000_000,
-        bid_size=100,
-        ask_size=200,
-        high=Decimal("176.00"),
-        low=Decimal("173.50"),
-        open=Decimal("174.00"),
-        close=Decimal("173.50"),
-        high_52=Decimal("199.00"),
-        low_52=Decimal("140.00"),
-        pe_ratio=Decimal("28.5"),
-        dividend=Decimal("0.96"),
-        dividend_yield=Decimal("0.55"),
-        market_cap=Decimal("2_750_000_000_000"),
-        quote_status="REALTIME",
-        timestamp="2024-01-15 16:00:00 EST",
-    )
-
-
-@pytest.fixture
-async def mcp_client() -> AsyncGenerator[Client[FastMCPTransport], None]:
-    """MCP client for testing server tools."""
+async def mcp_client(
+    etrade: FakeETrade,
+) -> AsyncGenerator[Client[FastMCPTransport], None]:
+    """An MCP client connected in memory to the server, which uses FakeETrade."""
     async with fastmcp.Client(server.mcp) as client:
         yield client
 
 
-@pytest.fixture
-def mock_repository_context(
-    sample_account: Account,
-    sample_balance: Balance,
-    sample_portfolio: Portfolio,
-    sample_quote: Quote,
-) -> Generator[MagicMock, None, None]:
-    """Mock the repository at the module level to prevent OAuth during tests."""
-    mock_repo = MagicMock(spec=ETradeRepository)
-    mock_repo.get_accounts.return_value = [sample_account]
-    mock_repo.get_account_balance.return_value = sample_balance
-    mock_repo.get_account_portfolio.return_value = sample_portfolio
-    mock_repo.get_quotes.return_value = [sample_quote]
-    mock_repo._is_authorized = True
+def account_json(
+    account_id_key: str = "abc123xyz",
+    status: str = "ACTIVE",
+    institution_type: str = "BROKERAGE",
+) -> dict[str, Any]:
+    """One account from E*TRADE's account list."""
+    return {
+        "accountId": "12345678",
+        "accountIdKey": account_id_key,
+        "accountMode": "MARGIN",
+        "accountDesc": "Brokerage",
+        "accountName": "Long-term",
+        "accountType": "INDIVIDUAL",
+        "institutionType": institution_type,
+        "accountStatus": status,
+    }
 
-    # Patch the _repositories dict with a dict containing our mock repo
-    with patch("server._repositories", {"0": mock_repo}):
-        yield mock_repo
+
+def account_list(*accounts: dict[str, Any]) -> dict[str, Any]:
+    """E*TRADE's account list response.  One account arrives as a bare object."""
+    listed: Any = accounts[0] if len(accounts) == 1 else list(accounts)
+    return {"AccountListResponse": {"Accounts": {"Account": listed}}}

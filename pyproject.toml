@@ -26,10 +26,7 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = [
-    "--cov=server",
-    "--cov=models",
-    "--cov=repository",
-    "--cov=tests/",
+    "--cov",
     "--cov-branch",
     "--cov-report=term-missing:skip-covered",
     "--cov-fail-under=100",
@@ -53,12 +50,14 @@ exclude_also = [
 ]
 
 [tool.coverage.run]
-omit = ["tests/assertions.py"]
+source = ["."]
+omit = [".venv/*"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 explicit_package_bases = true
+mypy_path = "tests"
 
 [[tool.mypy.overrides]]
 module = ["requests_oauthlib", "requests_oauthlib.*"]
@@ -78,6 +77,9 @@ select = [
     "RUF", # ruff-specific rules
 ]
 ignore = []
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastmcp.dependencies.Shared"]
 
 [tool.ruff.lint.per-file-ignores]
 "oauth_web_server.py" = ["E501"]  # Allow long lines in HTML templates
