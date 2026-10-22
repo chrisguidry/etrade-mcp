@@ -39,11 +39,13 @@ def temp_config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def etrade_response(body: Any, status: int = 200) -> requests.Response:
-    """A real requests Response with a JSON body, as E*TRADE sends it."""
+    """A real requests Response with a JSON body, as E*TRADE sends it.  A 204
+    No Content response has an empty body."""
     response = requests.Response()
     response.status_code = status
     response.reason = HTTPStatus(status).phrase
-    response._content = json.dumps(body).encode()
+    no_content = status == HTTPStatus.NO_CONTENT
+    response._content = b"" if no_content else json.dumps(body).encode()
     return response
 
 

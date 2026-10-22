@@ -10,13 +10,15 @@ Ask your AI assistant questions like:
 - "What's my current asset allocation?"
 - "Do my E\*TRADE balances match what's in [YNAB](https://github.com/chrisguidry/you-need-an-mcp)?"
 - "What's the current price of Apple stock?"
+- "What dividends did I get last month?"
 
-The server has five tools, and every one of them only reads:
+The server has six tools, and every one of them only reads:
 
 - `list_profiles`: the E\*TRADE logins the server is configured for
 - `list_accounts`: the open accounts for one profile
 - `get_account_balance`: one account's cash, buying power, and total value
 - `get_account_portfolio`: the positions in one account, with their value and gains
+- `get_transactions`: the trades, dividends, and transfers in one brokerage account over a date range
 - `get_quotes`: quotes for up to 25 symbols
 
 None of them places, changes, or cancels an order, or moves money.
@@ -122,7 +124,7 @@ uv run ruff format --check .
 uv run pre-commit run --all-files
 ```
 
-The repository has no CI, so run these before you push.
+CI runs the tests, mypy, and both ruff checks on every push to `main` and on every pull request.
 
 ## Resources
 

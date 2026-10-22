@@ -243,7 +243,7 @@ class ETradeRepository:
             params: Optional query parameters
 
         Returns:
-            The response's JSON
+            The response's JSON, or an empty dict when the response has no body
 
         Raises:
             ETradeError: E*TRADE refused the request or did not answer
@@ -271,4 +271,8 @@ class ETradeRepository:
         if not response.ok:
             raise ETradeError.from_response(response)
 
+        # E*TRADE answers a search with no results, such as a date range with
+        # no transactions, with 204 No Content and an empty body.
+        if not response.content:
+            return {}
         return response.json()

@@ -115,8 +115,8 @@ def list_accounts(
     account has its type (INDIVIDUAL, JOINT, IRA, and others), its mode (CASH,
     MARGIN, or IRA), and its institution type (BROKERAGE or BANK).
 
-    Pass an account's account_id_key to get_account_balance and
-    get_account_portfolio.
+    Pass an account's account_id_key to get_account_balance,
+    get_account_portfolio, and get_transactions.
 
     Args:
         profile: Profile ID from list_profiles (default: "0")

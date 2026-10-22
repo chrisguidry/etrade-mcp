@@ -13,6 +13,7 @@ import accounts
 import portfolios
 import profiles
 import quotes
+import transactions
 from etrade_errors import ETradeErrorMiddleware
 
 logging.basicConfig(
@@ -21,13 +22,14 @@ logging.basicConfig(
 
 INSTRUCTIONS = """
 Gives you read-only access to the user's E*TRADE brokerage and bank accounts:
-the accounts, their balances, the positions in each portfolio, and market
-quotes.  Use it to answer questions about investment performance, asset
-allocation, cash available to invest, and the price of a security.  It cannot
+the accounts, their balances, the positions in each portfolio, each brokerage
+account's transactions, and market quotes.  Use it to answer questions about
+investment performance, asset allocation, cash available to invest, recent
+trades, dividends, and transfers, and the price of a security.  It cannot
 place, change, or cancel orders, and it cannot move money.
 
 Start with list_accounts.  Pass an account's account_id_key to
-get_account_balance and get_account_portfolio.
+get_account_balance, get_account_portfolio, and get_transactions.
 
 The server can hold several E*TRADE logins, called profiles, such as one per
 household member.  Every tool takes a profile argument, which defaults to "0".
@@ -48,6 +50,7 @@ mcp: FastMCP[None] = FastMCP(
         *profiles.TOOLS,
         *accounts.TOOLS,
         *portfolios.TOOLS,
+        *transactions.TOOLS,
         *quotes.TOOLS,
     ],
 )

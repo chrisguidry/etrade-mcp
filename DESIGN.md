@@ -63,7 +63,8 @@ Each use case follows this structure:
 **MCP Server Role**:
 - `list_accounts()` - Get all accounts (including bank accounts)
 - `get_account_balance(account_id_key)` - Get precise balance for each account
-- Returns cash balances, total account values, and buying power
+- `get_transactions(account_id_key, start_date, end_date)` - The deposits, withdrawals, and trades that explain a difference
+- Returns cash balances, total account values, buying power, and recent transactions
 
 **LLM Role**:
 - Compares E*TRADE balances with YNAB account balances
@@ -236,17 +237,17 @@ Each use case follows this structure:
 
 ## Tool Implementation Status
 
-### Currently Implemented (5 tools)
+### Currently Implemented (6 tools)
 - `list_profiles()` - The configured E*TRADE logins
 - `list_accounts(profile)` - Open accounts for one profile, a page at a time
 - `get_account_balance(account_id_key)` - Detailed balance for one account
 - `get_account_portfolio(account_id_key)` - Holdings for one account, a page at a time, with the total value of all of them
+- `get_transactions(account_id_key, start_date, end_date)` - Transactions in one brokerage account over a date range, newest first, a page at a time
 - `get_quotes(symbols)` - Quotes for up to 25 securities
 
 Every tool is tagged `read` and annotated read-only.  A tool that places, changes, or cancels an order, or moves money, would be tagged `write` and annotated destructive, and the server would need an environment variable that hides its write tools.
 
 ### Potential Future Tools
-- `get_transactions(account_id_key)` - Recent transactions for reconciliation
 - `get_option_chains(symbol)` - Option chain data for options analysis
 - `get_market_hours()` - Market open/close status
 

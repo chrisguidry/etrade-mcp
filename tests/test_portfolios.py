@@ -2,6 +2,7 @@
 Test reading an account's portfolio.
 """
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -9,7 +10,7 @@ import pytest
 from conftest import FakeETrade
 from fastmcp.client import Client, FastMCPTransport
 
-from portfolios import MAXIMUM_PAGES, page_count
+from portfolios import MAXIMUM_PAGES, option_expiry, page_count
 
 PORTFOLIO = "/v1/accounts/abc123xyz/portfolio.json"
 
@@ -87,7 +88,9 @@ async def test_get_account_portfolio(
                 "days_gain": "10.0",
                 "days_gain_pct": "0.57",
                 "position_type": "LONG",
-                "quote_detail": None,
+                "call_put": None,
+                "strike_price": None,
+                "expiry_date": None,
             }
         ],
         "total_market_value": "1750.0",
@@ -97,12 +100,20 @@ async def test_get_account_portfolio(
     }
 
 
-async def test_an_option_position_has_its_underlying_symbol(
+async def test_an_option_position_has_its_contract(
     etrade: FakeETrade, mcp_client: Client[FastMCPTransport]
 ) -> None:
     option = position_json(
         symbolDescription="AAPL Jan 15 '27 $200 Call",
-        Product={"symbol": "AAPL", "securityType": "OPTN"},
+        Product={
+            "symbol": "AAPL",
+            "securityType": "OPTN",
+            "callPut": "CALL",
+            "strikePrice": 200,
+            "expiryYear": 2027,
+            "expiryMonth": 1,
+            "expiryDay": 15,
+        },
     )
     etrade.answer(PORTFOLIO, portfolio_json(option))
 
@@ -112,6 +123,33 @@ async def test_an_option_position_has_its_underlying_symbol(
     assert position["symbol"] == "AAPL"
     assert position["symbol_description"] == "AAPL Jan 15 '27 $200 Call"
     assert position["type_code"] == "OPTN"
+    assert position["call_put"] == "CALL"
+    assert position["strike_price"] == "200"
+    assert position["expiry_date"] == "2027-01-15"
+
+
+async def test_a_stock_position_has_no_option_contract(
+    etrade: FakeETrade, mcp_client: Client[FastMCPTransport]
+) -> None:
+    """E*TRADE sends a stock's expiry and strike as zeros."""
+    stock = position_json(
+        Product={
+            "symbol": "AAPL",
+            "securityType": "EQ",
+            "strikePrice": 0,
+            "expiryYear": 0,
+            "expiryMonth": 0,
+            "expiryDay": 0,
+        },
+    )
+    etrade.answer(PORTFOLIO, portfolio_json(stock))
+
+    portfolio = await get_portfolio(mcp_client)
+
+    [position] = portfolio["positions"]
+    assert position["call_put"] is None
+    assert position["strike_price"] is None
+    assert position["expiry_date"] is None
 
 
 async def test_get_account_portfolio_reads_every_page(
@@ -215,3 +253,16 @@ async def test_get_account_portfolio_reads_at_most_the_page_limit(
 
     assert len(etrade.requests) == MAXIMUM_PAGES
     assert Decimal(portfolio["total_market_value"]) == 1750 * MAXIMUM_PAGES
+
+
+@pytest.mark.parametrize(
+    ("product", "expiry"),
+    [
+        ({"expiryYear": 2027, "expiryMonth": 1, "expiryDay": 15}, date(2027, 1, 15)),
+        ({"expiryYear": 0, "expiryMonth": 0, "expiryDay": 0}, None),
+        ({"expiryYear": 2027, "expiryMonth": 1}, None),
+        ({}, None),
+    ],
+)
+def test_option_expiry(product: dict[str, Any], expiry: date | None) -> None:
+    assert option_expiry(product) == expiry

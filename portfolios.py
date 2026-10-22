@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -80,8 +81,17 @@ class Position(BaseModel):
     position_type: str | None = Field(
         None, description="Position type: 'LONG' or 'SHORT'"
     )
-    quote_detail: str | None = Field(
-        None, description="Quote detail level used for valuation"
+
+    # Option contract, null for any other security
+    call_put: str | None = Field(
+        None, description="For an option, 'CALL' or 'PUT'.  Null for other securities"
+    )
+    strike_price: Decimal | None = Field(
+        None, description="For an option, the strike price.  Null for other securities"
+    )
+    expiry_date: date | None = Field(
+        None,
+        description="For an option, the date it expires.  Null for other securities",
     )
 
     @classmethod
@@ -89,6 +99,7 @@ class Position(BaseModel):
         """Convert one position from E*TRADE's portfolio response."""
         product = position.get("Product", {})
         description = position.get("symbolDescription", "")
+        option = product if product.get("securityType") == "OPTN" else {}
         return cls(
             symbol=product.get("symbol") or description,
             symbol_description=description,
@@ -104,8 +115,25 @@ class Position(BaseModel):
             days_gain=decimal_at(position, "daysGain"),
             days_gain_pct=decimal_at(position, "daysGainPct"),
             position_type=position.get("positionType"),
-            quote_detail=position.get("quoteDetail"),
+            call_put=option.get("callPut"),
+            strike_price=decimal_at(option, "strikePrice"),
+            expiry_date=option_expiry(option),
         )
+
+
+def option_expiry(product: dict[str, Any]) -> date | None:
+    """The date an option expires, from its product's year, month, and day.
+
+    E*TRADE sends zeros for a security that does not expire, which is no date.
+    """
+    try:
+        return date(
+            int(product["expiryYear"]),
+            int(product["expiryMonth"]),
+            int(product["expiryDay"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def page_count(portfolios: list[dict[str, Any]]) -> int:
