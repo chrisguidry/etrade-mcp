@@ -43,3 +43,14 @@ def date_at(data: dict[str, Any], key: str) -> date | None:
     if not str(value).isdigit():
         return None
     return datetime.fromtimestamp(int(str(value)) / 1000, EASTERN).date()
+
+
+def text_at(data: dict[str, Any], key: str) -> str | None:
+    """Read a value as text, or None when it is missing or empty.
+
+    E*TRADE sends an empty XML element, such as <memo />, as an empty string or
+    an empty object."""
+    value = data.get(key)
+    if value is None or isinstance(value, dict) or not str(value).strip():
+        return None
+    return str(value)

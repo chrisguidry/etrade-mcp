@@ -12,13 +12,14 @@ Ask your AI assistant questions like:
 - "What's the current price of Apple stock?"
 - "What dividends did I get last month?"
 
-The server has six tools, and every one of them only reads:
+The server has seven tools, and every one of them only reads:
 
 - `list_profiles`: the E\*TRADE logins the server is configured for
 - `list_accounts`: the open accounts for one profile
 - `get_account_balance`: one account's cash, buying power, and total value
 - `get_account_portfolio`: the positions in one account, with their value and gains
 - `get_transactions`: the trades, dividends, and transfers in one brokerage account over a date range
+- `get_transaction`: one transaction, with its category, memo, check number, order number, and settlement date
 - `get_quotes`: quotes for up to 25 symbols
 
 None of them places, changes, or cancels an order, or moves money.

@@ -29,7 +29,9 @@ trades, dividends, and transfers, and the price of a security.  It cannot
 place, change, or cancel orders, and it cannot move money.
 
 Start with list_accounts.  Pass an account's account_id_key to
-get_account_balance, get_account_portfolio, and get_transactions.
+get_account_balance, get_account_portfolio, and get_transactions.  Pass a
+transaction's transaction_id to get_transaction for its category, memo, check
+number, order number, and settlement date.
 
 The server can hold several E*TRADE logins, called profiles, such as one per
 household member.  Every tool takes a profile argument, which defaults to "0".

@@ -167,8 +167,9 @@ async def test_either_documented_shape_of_a_transaction(
     mcp_client: Client[FastMCPTransport],
     transaction: dict[str, Any],
 ) -> None:
-    """E*TRADE's reference capitalizes Brokerage and Product and puts
-    transactionType inside Brokerage.  Its example response does neither."""
+    """E*TRADE's reference puts transactionType inside the brokerage object,
+    and its details example capitalizes Brokerage and Product.  Its list
+    example uses lower case and puts transactionType on the transaction."""
     etrade.answer(TRANSACTIONS, transaction_list(transaction))
 
     transactions = await get_transactions(mcp_client, **OCTOBER)

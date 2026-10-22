@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from etrade_json import as_list, date_at, decimal_at
+from etrade_json import as_list, date_at, decimal_at, text_at
 
 
 @pytest.mark.parametrize(
@@ -55,3 +55,20 @@ def test_date_at(data: dict[str, Any], value: date | None) -> None:
     """E*TRADE dates a transaction at midnight US Eastern time, in daylight
     time (04:00 UTC) and in standard time (05:00 UTC)."""
     assert date_at(data, "transactionDate") == value
+
+
+@pytest.mark.parametrize(
+    ("data", "value"),
+    [
+        ({"memo": "Monthly buy"}, "Monthly buy"),
+        ({"memo": 1042}, "1042"),
+        ({"memo": ""}, None),
+        ({"memo": "   "}, None),
+        ({"memo": {}}, None),
+        ({"memo": None}, None),
+        ({}, None),
+    ],
+)
+def test_text_at(data: dict[str, Any], value: str | None) -> None:
+    """An empty XML element, such as <memo />, arrives empty or as an object."""
+    assert text_at(data, "memo") == value
