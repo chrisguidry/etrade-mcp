@@ -132,7 +132,7 @@ def option_expiry(product: dict[str, Any]) -> date | None:
             int(product["expiryMonth"]),
             int(product["expiryDay"]),
         )
-    except (KeyError, TypeError, ValueError):
+    except KeyError, TypeError, ValueError:
         return None
 
 

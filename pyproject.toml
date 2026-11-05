@@ -3,7 +3,7 @@ name = "etrade-mcp"
 version = "0.1.0"
 description = "MCP server for E*TRADE accounts"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.15"
 dependencies = [
     "fastmcp>=4.1.3",
     "pydantic>=2.14.1",
@@ -33,6 +33,12 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "-Werror",
+    # py-key-value-aio runs beartype on its own classes under pytest, and
+    # beartype calls isinstance() on their AsyncKeyValue protocol, which is
+    # not @runtime_checkable.  Python 3.15 deprecates that call, so beartype
+    # skips those classes and warns that it did.  Only py-key-value-aio
+    # brings beartype in, so the whole category is safe to ignore.
+    "-Wignore::beartype.roar.BeartypeClawDecorWarning",
 ]
 asyncio_mode = "auto"
 testpaths = ["tests"]
@@ -54,7 +60,7 @@ source = ["."]
 omit = [".venv/*"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.15"
 strict = true
 explicit_package_bases = true
 mypy_path = "tests"
@@ -64,7 +70,7 @@ module = ["requests_oauthlib", "requests_oauthlib.*"]
 ignore_missing_imports = true
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = [

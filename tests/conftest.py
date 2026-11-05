@@ -152,7 +152,7 @@ def repository(etrade: FakeETrade) -> ETradeRepository:
 @pytest.fixture
 async def mcp_client(
     etrade: FakeETrade,
-) -> AsyncGenerator[Client[FastMCPTransport], None]:
+) -> AsyncGenerator[Client[FastMCPTransport]]:
     """An MCP client connected in memory to the server, which uses FakeETrade."""
     async with fastmcp.Client(server.mcp) as client:
         yield client
