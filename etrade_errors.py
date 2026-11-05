@@ -44,7 +44,7 @@ class ETradeError(Exception):
         message = None
         try:
             message = response.json()["Error"]["message"]
-        except (ValueError, KeyError, TypeError):
+        except ValueError, KeyError, TypeError:
             pass
         detail = message or response.reason or "no detail"
         return cls(f"E*TRADE returned {status}: {detail}")
