@@ -1,7 +1,6 @@
 """Web-based OAuth authorization flow for non-interactive environments."""
 
 import logging
-import socket
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -134,17 +133,14 @@ def run_web_oauth_flow(authorization_url: str, timeout: int = 300) -> str:
     Raises:
         TimeoutError: If user doesn't complete authorization within timeout
     """
-    # Find an available port
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
-        port = s.getsockname()[1]
-
     # Set up handler with authorization URL
     OAuthWebHandler.authorization_url = authorization_url
     OAuthWebHandler.verification_code = None
 
-    # Start server in background thread
-    with HTTPServer(("localhost", port), OAuthWebHandler) as server:
+    # Port 0 lets the OS pick a free port on the loopback interface, so the
+    # flow is never reachable from the network.
+    with HTTPServer(("localhost", 0), OAuthWebHandler) as server:
+        port = server.server_address[1]
         server_thread = Thread(target=server.serve_forever, daemon=True)
         server_thread.start()
 
