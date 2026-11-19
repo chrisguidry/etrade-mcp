@@ -14,9 +14,9 @@ import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Renew a token this long before it expires or is deactivated.
 RENEWAL_MARGIN = timedelta(minutes=30)
@@ -49,7 +49,7 @@ def tokens_file() -> Path:
 def save_token(profile_id: str, environment: str, access_token: AccessToken) -> None:
     """Store one profile's access token, keeping the other profiles' tokens."""
     path = tokens_file()
-    all_tokens = json.loads(path.read_text()) if path.exists() else {}
+    all_tokens: dict[str, Any] = json.loads(path.read_text()) if path.exists() else {}
 
     all_tokens[profile_id] = {
         "oauth_token": access_token.token,

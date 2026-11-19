@@ -17,13 +17,13 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from pydantic import BaseModel, Field
 
-from effects import READ, READS
-from etrade_json import as_list, decimal_at
-from pagination import PaginationInfo, paginate
-from profiles import Profiles, configured_profiles
-from repository import ETradeRepository
+from etrade_mcp.effects import READ, READS
+from etrade_mcp.etrade_json import as_list, decimal_at
+from etrade_mcp.pagination import PaginationInfo, paginate
+from etrade_mcp.profiles import Profiles, configured_profiles
+from etrade_mcp.repository import ETradeRepository
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class Account(BaseModel):
@@ -97,7 +97,7 @@ class AccountsResponse(BaseModel):
     """Response containing a list of accounts."""
 
     accounts: list[Account] = Field(
-        default_factory=list, description="List of E*TRADE accounts"
+        default_factory=list[Account], description="List of E*TRADE accounts"
     )
     pagination: PaginationInfo = Field(..., description="Pagination information")
 

@@ -10,7 +10,7 @@ import pytest
 from conftest import FakeETrade
 from fastmcp.client import Client, FastMCPTransport
 
-from portfolios import MAXIMUM_PAGES, option_expiry, page_count
+from etrade_mcp.portfolios import MAXIMUM_PAGES, option_expiry, page_count
 
 PORTFOLIO = "/v1/accounts/abc123xyz/portfolio.json"
 
@@ -229,17 +229,17 @@ async def test_an_empty_portfolio(
     assert portfolio["total_market_value"] is None
 
 
-@pytest.mark.parametrize(
-    ("portfolios", "pages"),
-    [
-        ([], 1),
-        ([{}], 1),
-        ([{"totalPages": 3}], 3),
-        ([{"totalNoOfPages": "4"}], 4),
-        ([{"totalPages": "many"}], 1),
-        ([{"totalPages": 2}, {"totalPages": 5}], 5),
-    ],
-)
+PAGE_COUNTS: list[tuple[list[dict[str, Any]], int]] = [
+    ([], 1),
+    ([{}], 1),
+    ([{"totalPages": 3}], 3),
+    ([{"totalNoOfPages": "4"}], 4),
+    ([{"totalPages": "many"}], 1),
+    ([{"totalPages": 2}, {"totalPages": 5}], 5),
+]
+
+
+@pytest.mark.parametrize(("portfolios", "pages"), PAGE_COUNTS)
 def test_page_count(portfolios: list[dict[str, Any]], pages: int) -> None:
     assert page_count(portfolios) == pages
 

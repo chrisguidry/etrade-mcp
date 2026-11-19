@@ -9,12 +9,8 @@ import logging
 
 from fastmcp import FastMCP
 
-import accounts
-import portfolios
-import profiles
-import quotes
-import transactions
-from etrade_errors import ETradeErrorMiddleware
+from etrade_mcp import accounts, portfolios, profiles, quotes, transactions
+from etrade_mcp.etrade_errors import ETradeErrorMiddleware
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -58,10 +54,17 @@ mcp: FastMCP[None] = FastMCP(
 )
 
 
-if __name__ == "__main__":
-    # Authorize every profile before serving.  The tokens are stored, so the
-    # server's own repositories load them on first use.
+def main() -> None:
+    """Authorize every profile, then serve.
+
+    The tokens are stored, so the server's own repositories load them on first
+    use.
+    """
     for repository in profiles.create_repositories_from_env().values():
         repository.authorize()
 
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

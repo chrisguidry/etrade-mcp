@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-import tokens
-from tokens import AccessToken
+from etrade_mcp import tokens
+from etrade_mcp.tokens import AccessToken
 
 NOW = datetime(2026, 10, 22, 14, 0, tzinfo=UTC)
 
