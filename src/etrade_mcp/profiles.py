@@ -13,8 +13,8 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from pydantic import BaseModel, Field
 
-from effects import READ, READS
-from repository import ETradeRepository
+from etrade_mcp.effects import READ, READS
+from etrade_mcp.repository import ETradeRepository
 
 
 def create_repository_from_env(profile_id: str = "0") -> ETradeRepository:
@@ -74,7 +74,7 @@ def create_repositories_from_env() -> dict[str, ETradeRepository]:
     Returns:
         Dictionary mapping profile_id to ETradeRepository instance
     """
-    profile_ids = set()
+    profile_ids: set[str] = set()
 
     if os.environ.get("ETRADE_CONSUMER_KEY") or os.environ.get("ETRADE_0_CONSUMER_KEY"):
         profile_ids.add("0")

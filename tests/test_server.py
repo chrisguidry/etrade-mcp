@@ -3,6 +3,7 @@ Test the server's tool set and how it starts.
 """
 
 import runpy
+import sys
 from unittest.mock import patch
 
 import fastmcp
@@ -10,12 +11,19 @@ import mcp.types as mt
 import pytest
 from conftest import FakeETrade
 
-from effects import READ, WRITE
-from repository import ETradeRepository
+from etrade_mcp.effects import READ, WRITE
+from etrade_mcp.repository import ETradeRepository
+
+
+@pytest.fixture(autouse=True)
+def server_not_imported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """runpy executes the module's code afresh, and warns when an imported copy
+    of the module is already in sys.modules, as conftest's import leaves one."""
+    monkeypatch.delitem(sys.modules, "etrade_mcp.server")
 
 
 async def served_tools() -> list[mt.Tool]:
-    module = runpy.run_module("server")
+    module = runpy.run_module("etrade_mcp.server")
     async with fastmcp.Client(module["mcp"]) as client:
         tools: list[mt.Tool] = await client.list_tools()
     return tools
@@ -67,10 +75,10 @@ def test_running_the_module_authorizes_every_profile_then_serves(
         authorized.append(repository.profile_id)
 
     with (
-        patch("repository.ETradeRepository.authorize", authorize),
+        patch("etrade_mcp.repository.ETradeRepository.authorize", authorize),
         patch("fastmcp.FastMCP.run") as run,
     ):
-        runpy.run_module("server", run_name="__main__")
+        runpy.run_module("etrade_mcp.server", run_name="__main__")
 
     assert authorized == ["0", "1"]
     run.assert_called_once_with()
@@ -78,6 +86,6 @@ def test_running_the_module_authorizes_every_profile_then_serves(
 
 def test_importing_the_server_does_not_start_it() -> None:
     with patch("fastmcp.FastMCP.run") as run:
-        runpy.run_module("server")
+        runpy.run_module("etrade_mcp.server")
 
     run.assert_not_called()

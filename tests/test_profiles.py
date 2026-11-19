@@ -5,7 +5,7 @@ Test configuring profiles from the environment and listing them.
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
-from profiles import create_repositories_from_env, create_repository_from_env
+from etrade_mcp.profiles import create_repositories_from_env, create_repository_from_env
 
 
 def set_environment(monkeypatch: pytest.MonkeyPatch, variables: dict[str, str]) -> None:

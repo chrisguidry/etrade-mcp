@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from etrade_json import as_list, date_at, decimal_at, text_at
+from etrade_mcp.etrade_json import as_list, date_at, decimal_at, text_at
 
 
 @pytest.mark.parametrize(

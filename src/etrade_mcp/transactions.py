@@ -28,13 +28,13 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from pydantic import BaseModel, Field
 
-from effects import READ, READS
-from etrade_json import EASTERN, as_list, date_at, decimal_at, text_at
-from pagination import PaginationInfo, paginate
-from profiles import Profiles, configured_profiles
-from repository import ETradeRepository
+from etrade_mcp.effects import READ, READS
+from etrade_mcp.etrade_json import EASTERN, as_list, date_at, decimal_at, text_at
+from etrade_mcp.pagination import PaginationInfo, paginate
+from etrade_mcp.profiles import Profiles, configured_profiles
+from etrade_mcp.repository import ETradeRepository
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # The most transactions E*TRADE returns in one response.
 PAGE_SIZE = 50
@@ -114,7 +114,9 @@ class Transaction(BaseModel):
         details example names it Product.  This reads either.
         """
         brokerage = brokerage_of(transaction)
-        product = brokerage.get("product") or brokerage.get("Product") or {}
+        product: dict[str, Any] = (
+            brokerage.get("product") or brokerage.get("Product") or {}
+        )
         return cls(
             transaction_id=str(transaction.get("transactionId", "")),
             transaction_date=date_at(transaction, "transactionDate"),
@@ -187,7 +189,9 @@ class TransactionDetails(Transaction):
         and its list example puts memo on the transaction.  This reads either.
         """
         brokerage = brokerage_of(details)
-        category = details.get("category") or details.get("Category") or {}
+        category: dict[str, Any] = (
+            details.get("category") or details.get("Category") or {}
+        )
         return cls(
             **Transaction.from_etrade(details).model_dump(),
             category=text_at(category, "categoryName"),
@@ -253,7 +257,7 @@ class TransactionsResponse(BaseModel):
     start_date: date = Field(..., description="The first date in the range")
     end_date: date = Field(..., description="The last date in the range")
     transactions: list[Transaction] = Field(
-        default_factory=list,
+        default_factory=list[Transaction],
         description="One page of the transactions in the range, newest first",
     )
     truncated: bool = Field(

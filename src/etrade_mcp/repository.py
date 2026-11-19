@@ -10,17 +10,17 @@ import sys
 import threading
 import webbrowser
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol, TypedDict, Unpack
 
 import requests
 from requests_oauthlib import OAuth1Session
 
-import tokens
-from etrade_errors import ETradeError
-from oauth_web_server import run_web_oauth_flow
-from tokens import AccessToken
+from etrade_mcp import tokens
+from etrade_mcp.etrade_errors import ETradeError
+from etrade_mcp.oauth_web_server import run_web_oauth_flow
+from etrade_mcp.tokens import AccessToken
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Every request to E*TRADE waits at most this long, so that a stuck request
 # fails the tool call instead of hanging the client.
@@ -30,6 +30,46 @@ REQUEST_TIMEOUT_SECONDS = 30
 # The browser flow keeps its state in one class, and E*TRADE issues one
 # request token per flow, so only one authorization runs at a time.
 _authorization_lock = threading.Lock()
+
+
+class OAuthSession(Protocol):
+    """The part of requests_oauthlib's OAuth1Session that the repository calls.
+
+    requests_oauthlib ships no type information, so this names the methods'
+    types for the type checker.
+    """
+
+    def get(
+        self,
+        url: str,
+        *,
+        params: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> requests.Response: ...
+
+    def fetch_request_token(
+        self, url: str, *, timeout: float | None = None
+    ) -> dict[str, str]: ...
+
+    def fetch_access_token(
+        self, url: str, *, timeout: float | None = None
+    ) -> dict[str, str]: ...
+
+
+class SessionOptions(TypedDict, total=False):
+    """The OAuth1Session arguments that the repository passes."""
+
+    client_secret: str
+    callback_uri: str
+    resource_owner_key: str | None
+    resource_owner_secret: str | None
+    verifier: str
+
+
+def open_session(consumer_key: str, **oauth: Unpack[SessionOptions]) -> OAuthSession:
+    """Open an OAuth1Session, typed as the methods the repository calls."""
+    session: OAuthSession = OAuth1Session(consumer_key, **oauth)
+    return session
 
 
 class ETradeRepository:
@@ -71,6 +111,7 @@ class ETradeRepository:
         self.profile_id = profile_id
         self.profile_label = profile_label
 
+        self.base_url: str
         if environment == "sandbox":
             self.base_url = self.SANDBOX_BASE_URL
         elif environment == "production":
@@ -78,7 +119,7 @@ class ETradeRepository:
         else:
             raise ValueError(f"Invalid environment: {environment}")
 
-        self.session: OAuth1Session | None = None
+        self.session: OAuthSession | None = None
         self.access_token: AccessToken | None = None
 
     @property
@@ -89,7 +130,7 @@ class ETradeRepository:
     def _use_token(self, access_token: AccessToken) -> None:
         """Sign every request from now on with this access token."""
         self.access_token = access_token
-        self.session = OAuth1Session(
+        self.session = open_session(
             self.consumer_key,
             client_secret=self.consumer_secret,
             resource_owner_key=access_token.token,
@@ -147,7 +188,7 @@ class ETradeRepository:
 
         logger.info("Starting E*TRADE OAuth authorization flow")
 
-        oauth = OAuth1Session(
+        oauth = open_session(
             self.consumer_key,
             client_secret=self.consumer_secret,
             callback_uri="oob",
@@ -188,7 +229,7 @@ class ETradeRepository:
             )
             verification_code = run_web_oauth_flow(authorization_url, timeout=300)
 
-        oauth = OAuth1Session(
+        oauth = open_session(
             self.consumer_key,
             client_secret=self.consumer_secret,
             resource_owner_key=resource_owner_key,

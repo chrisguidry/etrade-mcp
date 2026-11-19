@@ -8,7 +8,6 @@ which answers requests the way E*TRADE's API does, from JSON each test gives it.
 from __future__ import annotations
 
 import json
-import sys
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
@@ -21,12 +20,9 @@ import pytest
 import requests
 from fastmcp.client import Client, FastMCPTransport
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import server
-import tokens
-from repository import ETradeRepository
-from tokens import AccessToken
+from etrade_mcp import server, tokens
+from etrade_mcp.repository import ETradeRepository
+from etrade_mcp.tokens import AccessToken
 
 
 @pytest.fixture(autouse=True)
@@ -133,7 +129,7 @@ def store_token(
 def etrade(monkeypatch: pytest.MonkeyPatch) -> FakeETrade:
     """E*TRADE, with profile 0 already authorized in the sandbox."""
     fake = FakeETrade()
-    monkeypatch.setattr("repository.OAuth1Session", fake)
+    monkeypatch.setattr("etrade_mcp.repository.OAuth1Session", fake)
     store_token()
     return fake
 

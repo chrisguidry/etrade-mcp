@@ -10,7 +10,7 @@ from conftest import FakeETrade
 from fastmcp.client import Client, FastMCPTransport
 from fastmcp.exceptions import ToolError
 
-from transactions import MAXIMUM_PAGES, PAGE_SIZE
+from etrade_mcp.transactions import MAXIMUM_PAGES, PAGE_SIZE
 
 TRANSACTIONS = "/v1/accounts/abc123xyz/transactions.json"
 

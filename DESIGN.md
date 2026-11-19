@@ -270,7 +270,7 @@ E*TRADE uses OAuth 1.0 with a manual authorization step:
    - Sets callback to "oob" (out-of-band)
 
 2. **Authorization**:
-   - `python server.py` authorizes every profile before it serves; under an MCP client, each profile authorizes on its first tool call
+   - `etrade-mcp` (or `python -m etrade_mcp.server`) authorizes every profile before it serves; under an MCP client, each profile authorizes on its first tool call
    - The server opens the browser for the user to log into E*TRADE
    - User authorizes and receives verification code
    - User enters the code in the terminal, or, without a terminal, on a local web page the server opens

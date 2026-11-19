@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 
 import pytest
 
-from oauth_web_server import OAuthWebHandler, run_web_oauth_flow
+from etrade_mcp.oauth_web_server import OAuthWebHandler, run_web_oauth_flow
 
 
 def test_oauth_handler_serves_authorization_page(unused_tcp_port: int) -> None:
@@ -187,7 +187,7 @@ def test_run_web_oauth_flow_integration() -> None:
     test_code = "VERIFICATION_CODE_123"
 
     # Track if browser was opened
-    browser_opened = []
+    browser_opened: list[str] = []
 
     def mock_browser_open(url: str) -> bool:
         browser_opened.append(url)
@@ -211,7 +211,9 @@ def test_run_web_oauth_flow_integration() -> None:
         return True
 
     with patch(
-        "oauth_web_server.webbrowser.open", autospec=True, side_effect=mock_browser_open
+        "etrade_mcp.oauth_web_server.webbrowser.open",
+        autospec=True,
+        side_effect=mock_browser_open,
     ):
         # Run the OAuth flow
         code = run_web_oauth_flow(auth_url, timeout=5)
@@ -230,7 +232,7 @@ def test_run_web_oauth_flow_timeout_real() -> None:
     auth_url = "https://example.com/auth"
 
     # Don't open browser, just suppress it
-    with patch("oauth_web_server.webbrowser.open", autospec=True):
+    with patch("etrade_mcp.oauth_web_server.webbrowser.open", autospec=True):
         # Use very short timeout
         start = time.time()
 
@@ -260,7 +262,7 @@ def test_oauth_handler_suppresses_logs(capsys: pytest.CaptureFixture[str]) -> No
 def test_run_web_oauth_flow_finds_random_port() -> None:
     """Test that run_web_oauth_flow successfully finds an available port."""
     auth_url = "https://example.com/auth"
-    ports_used = []
+    ports_used: list[int] = []
 
     def track_browser_open(url: str) -> bool:  # pragma: no cover
         # Extract the port
@@ -283,7 +285,7 @@ def test_run_web_oauth_flow_finds_random_port() -> None:
         return True
 
     with patch(
-        "oauth_web_server.webbrowser.open",
+        "etrade_mcp.oauth_web_server.webbrowser.open",
         autospec=True,
         side_effect=track_browser_open,
     ):

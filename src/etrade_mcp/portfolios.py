@@ -17,13 +17,13 @@ from fastmcp.dependencies import Shared
 from fastmcp.tools import tool
 from pydantic import BaseModel, Field
 
-from effects import READ, READS
-from etrade_json import as_list, decimal_at
-from pagination import PaginationInfo, paginate
-from profiles import Profiles, configured_profiles
-from repository import ETradeRepository
+from etrade_mcp.effects import READ, READS
+from etrade_mcp.etrade_json import as_list, decimal_at
+from etrade_mcp.pagination import PaginationInfo, paginate
+from etrade_mcp.profiles import Profiles, configured_profiles
+from etrade_mcp.repository import ETradeRepository
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # A limit on the pages read, so that a wrong page count cannot make the server
 # send requests without end.  At 50 positions a page, this is 5,000 positions.
@@ -97,9 +97,11 @@ class Position(BaseModel):
     @classmethod
     def from_etrade(cls, position: dict[str, Any]) -> Position:
         """Convert one position from E*TRADE's portfolio response."""
-        product = position.get("Product", {})
+        product: dict[str, Any] = position.get("Product", {})
         description = position.get("symbolDescription", "")
-        option = product if product.get("securityType") == "OPTN" else {}
+        option: dict[str, Any] = (
+            product if product.get("securityType") == "OPTN" else {}
+        )
         return cls(
             symbol=product.get("symbol") or description,
             symbol_description=description,
@@ -180,7 +182,7 @@ class Portfolio(BaseModel):
 
     account_id: str = Field(..., description="Account identifier")
     positions: list[Position] = Field(
-        default_factory=list,
+        default_factory=list[Position],
         description="One page of the positions in the account",
     )
     total_market_value: Decimal | None = Field(

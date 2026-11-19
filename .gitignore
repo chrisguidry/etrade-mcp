@@ -55,3 +55,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# loq
+.loq_cache

@@ -13,12 +13,12 @@ from fastmcp.dependencies import Shared
 from fastmcp.tools import tool
 from pydantic import BaseModel, Field
 
-from effects import READ, READS
-from etrade_json import as_list, decimal_at
-from profiles import Profiles, configured_profiles
-from repository import ETradeRepository
+from etrade_mcp.effects import READ, READS
+from etrade_mcp.etrade_json import as_list, decimal_at
+from etrade_mcp.profiles import Profiles, configured_profiles
+from etrade_mcp.repository import ETradeRepository
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # E*TRADE answers a quote request for at most this many symbols.
 MAXIMUM_SYMBOLS = 25
@@ -120,10 +120,10 @@ class QuotesResponse(BaseModel):
     """Response containing quotes for one or more securities."""
 
     quotes: list[Quote] = Field(
-        default_factory=list, description="List of security quotes"
+        default_factory=list[Quote], description="List of security quotes"
     )
     messages: list[str] = Field(
-        default_factory=list,
+        default_factory=list[str],
         description="E*TRADE's messages about the request, such as a symbol it "
         "does not recognize",
     )

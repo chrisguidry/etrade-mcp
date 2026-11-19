@@ -10,7 +10,7 @@ from conftest import FakeETrade, etrade_response
 from fastmcp.client import Client, FastMCPTransport
 from fastmcp.exceptions import ToolError
 
-from etrade_errors import ETradeError
+from etrade_mcp.etrade_errors import ETradeError
 
 ACCOUNTS = "/v1/accounts/list.json"
 

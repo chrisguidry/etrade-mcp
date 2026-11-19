@@ -11,9 +11,9 @@ import pytest
 import requests
 from conftest import FakeETrade, store_token
 
-import tokens
-from etrade_errors import ETradeError
-from repository import REQUEST_TIMEOUT_SECONDS, ETradeRepository
+from etrade_mcp import tokens
+from etrade_mcp.etrade_errors import ETradeError
+from etrade_mcp.repository import REQUEST_TIMEOUT_SECONDS, ETradeRepository
 
 RENEW = "/oauth/renew_access_token"
 
@@ -51,7 +51,7 @@ def terminal(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     opened: list[str] = []
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr("builtins.input", lambda: " typed-code ")
-    monkeypatch.setattr("repository.webbrowser.open", opened.append)
+    monkeypatch.setattr("etrade_mcp.repository.webbrowser.open", opened.append)
     return opened
 
 
@@ -111,9 +111,11 @@ def test_authorizing_without_a_terminal_uses_the_web_page(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
-    monkeypatch.setattr(
-        "repository.run_web_oauth_flow", lambda url, timeout: "web-code"
-    )
+
+    def web_flow(url: str, timeout: int) -> str:
+        return "web-code"
+
+    monkeypatch.setattr("etrade_mcp.repository.run_web_oauth_flow", web_flow)
 
     repository.authorize()
 
@@ -218,7 +220,7 @@ def test_concurrent_requests_authorize_once(
         return "web-code"
 
     monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
-    monkeypatch.setattr("repository.run_web_oauth_flow", slow_web_flow)
+    monkeypatch.setattr("etrade_mcp.repository.run_web_oauth_flow", slow_web_flow)
 
     threads = [threading.Thread(target=repository.ensure_authorized) for _ in range(3)]
     for thread in threads:

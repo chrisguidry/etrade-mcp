@@ -95,7 +95,7 @@ export ETRADE_2_LABEL="Testing"
 ### 4. Run and Authorize
 
 ```bash
-uv run python server.py
+uv run etrade-mcp
 ```
 
 On first run (or when tokens expire), the server opens a browser to authorize access:
@@ -106,26 +106,19 @@ On first run (or when tokens expire), the server opens a browser to authorize ac
 
 Tokens are saved in `~/.config/etrade-mcp/` and automatically renewed. Each profile maintains separate tokens.
 
-E\*TRADE expires every token at midnight US Eastern time. After that, or when E\*TRADE stops accepting a profile's token, the next tool call for that profile opens the authorization page in a browser again. When an MCP client starts the server with `fastmcp run server.py:mcp` and no token is saved, the first tool call opens the same page.
+E\*TRADE expires every token at midnight US Eastern time. After that, or when E\*TRADE stops accepting a profile's token, the next tool call for that profile opens the authorization page in a browser again. When an MCP client starts the server with `fastmcp run src/etrade_mcp/server.py:mcp` and no token is saved, the first tool call opens the same page.
 
 ## Development
 
 ```bash
-# Run tests (requires 100% coverage)
-uv run pytest
-
-# Type checking
-uv run mypy .
-
-# Linting and formatting
-uv run ruff check .
-uv run ruff format --check .
-
-# Every pre-commit hook
-uv run pre-commit run --all-files
+uv sync
+uv run pytest               # requires 100% branch coverage
+uv run prek run --all-files # lint, format, spelling, type-check, file-size limits
 ```
 
-CI runs the tests, mypy, and both ruff checks on every push to `main` and on every pull request.
+The hooks run with [prek](https://github.com/j178/prek), which reads `.pre-commit-config.yaml`. Run `uv run prek install` once to run them on every commit. They run ruff, codespell, [loq](https://github.com/jakekaplan/loq) for a 500-line limit on each file, and pyright in strict mode on the package and the tests.
+
+CI runs the tests and every hook on every push to `main` and on every pull request.
 
 ## Resources
 
